@@ -12,11 +12,14 @@ ros::Publisher *p_cmd_vel_pub;
  * This tutorial demonstrates simple sending of messages over the ROS system.
  */
 
+
 bool stop_moving = 0;
+// Create a float variable to hold the parameter
+double wall_dist = 0.0;
 void laserScanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
 {
   for (int indx = 45; indx < 225; indx++){
-    if(msg->ranges[indx] < 0.75) {
+    if(msg->ranges[indx] < wall_dist) {
       stop_moving = 1;
       break;
     }
@@ -26,19 +29,17 @@ void laserScanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
   }
 
   if (stop_moving) {
-    //ROS_INFO_THROTTLE(0.5, "Stop moving!!!!!!!!!");
+    ROS_INFO_THROTTLE(1, "Stop command sent");
   }
 
 }
-
+geometry_msgs::Twist to_send;
 void desVelCallback(const geometry_msgs::Twist::ConstPtr& msg)
 {
-  geometry_msgs::Twist to_send = *msg;
+  to_send = *msg;
 
-
-  if(stop_moving & (to_send.linear.x > 0.0)) {
-    to_send.linear.x = 0.0;
-    ROS_INFO_THROTTLE(.1, "Stopped");
+  if (stop_moving){
+    to_send.linear.x = to_send.linear.x > 0? 0 : to_send.linear.x;
   }
 
   p_cmd_vel_pub->publish(to_send);
@@ -46,6 +47,11 @@ void desVelCallback(const geometry_msgs::Twist::ConstPtr& msg)
 }
 int main(int argc, char **argv)
 {
+  
+  
+    
+  
+  
   /**
    * The ros::init() function needs to see argc and argv so that it can perform
    * any ROS arguments and name remapping that were provided at the command line.
@@ -82,10 +88,10 @@ int main(int argc, char **argv)
    * than we can send them, the number here specifies how many messages to
    * buffer up before throwing some away.
    */
-  ros::Subscriber sub = n.subscribe("robot0/laser_1", 10, laserScanCallback);
-  ros::Subscriber sub_1 = n.subscribe("robot0/des_vel", 10, desVelCallback);
+  ros::Subscriber sub = n.subscribe("laser_1", 10, laserScanCallback);
+  ros::Subscriber sub_1 = n.subscribe("des_vel", 10, desVelCallback);
 
-  ros::Publisher cmd_vel_pub = n.advertise<geometry_msgs::Twist>("robot0/cmd_vel", 1000);
+  ros::Publisher cmd_vel_pub = n.advertise<geometry_msgs::Twist>("cmd_vel", 1000);
   p_cmd_vel_pub = &cmd_vel_pub; // Keeps track of address
   ros::Rate loop_rate(10);
 
@@ -94,8 +100,21 @@ int main(int argc, char **argv)
    * a unique string for each message.
    */
   // int count = 0;
+
+  
+  if (ros::param::getCached("wall_dist", wall_dist)){
+    ROS_INFO("wall_dist is: [%2.2f]", wall_dist);
+  }
+  else{
+    ROS_ERROR("Failed to get param 'wall_dist'");
+  }
   while (ros::ok())
   {
+    ros::param::getCached("wall_dist", wall_dist);
+    // ROS_INFO_THROTTLE(10, "wall_dist is %2.2f", wall_dist);
+    // if (ros::param::getCached("wall_dist", wall_dist)){
+    //   ROS_INFO("wall_dist was updated to: [%2.2f]", wall_dist);
+    // }
     // /**
     //  * This is a message object. You stuff it with data, and then publish it.
     //  */
@@ -114,20 +133,8 @@ int main(int argc, char **argv)
     //  * in the constructor above.
     //  */
     // chatter_pub.publish(msg);
+    
 
-    /*if(stop_moving){
-      geometry_msgs::Twist to_send;
-      to_send.linear.x = 0.0;
-      to_send.linear.y = 0.0;
-      to_send.linear.z = 0.0;
-      to_send.angular.x = 0.0;
-      to_send.angular.y = 0.0;
-      to_send.angular.z = 0.0;
-
-      p_cmd_vel_pub->publish(to_send);
-      ROS_INFO("cmd sent");
-      stop_moving = 0;
-    }*/
 
     ros::spinOnce();
 
